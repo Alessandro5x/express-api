@@ -13,21 +13,42 @@ app.get('/users', (req, res) => {
   res.json(users);
 });
 
-//  POST /users - Register a new user
+// POST /users - Register a new user
 app.post('/users', (req, res) => {
-  const { id, name, interests } = req.body;
-  // Basic input validation
-  if (!id || !name || !Array.isArray(interests)) {
-    return res.status(400).json({ error: 'id, name, and interests[] are required' });
-  }
-  // Prevent duplicate user ID
-  if (users.some(u => u.id === id)) {
-    return res.status(409).json({ error: 'User with this ID already exists' });
+  let data = req.body;
+
+  // Allow single object or array of objects
+  if (!Array.isArray(data)) {
+    data = [data];
   }
 
-  users.push({ id, name, interests });
-  res.status(201).json({ message: 'User created successfully' });
+  const addedUsers = [];
+  const errors = [];
+
+  for (const user of data) {
+    const { id, name, interests } = user;
+
+    if (!id || !name || !Array.isArray(interests)) {
+      errors.push({ id, error: 'Invalid user format: id, name, and interests[] are required' });
+      continue;
+    }
+
+    if (users.some(u => u.id === id)) {
+      errors.push({ id, error: 'User with this ID already exists' });
+      continue;
+    }
+
+    users.push({ id, name, interests });
+    addedUsers.push({ id, name });
+  }
+
+  res.status(201).json({
+    message: 'Processed user creation',
+    addedUsers,
+    errors
+  });
 });
+
 
 // GET /matches/:id - Return users with at least one common interest
 app.get('/matches/:id', (req, res) => {
@@ -65,8 +86,7 @@ if (require.main === module) {
   });
 
   setTimeout(testListUsers, 1000);
-  setTimeout(testAddUser1, 2000);
-  setTimeout(testAddUser2, 2500);
+  setTimeout(testAddUsers, 2000);
   setTimeout(testListUsers, 3000);
   setTimeout(() => testUserMatch('0'), 3500);
 }
@@ -95,8 +115,11 @@ function testListUsers() {
   req.end();
 }
 
-function testAddUser1() {
-  const userData = JSON.stringify({ id: '0', name: 'Francis Coppola', interests: ['soccer', 'golf'] });
+function testAddUsers() {
+  const userData = JSON.stringify([
+    { id: '0', name: 'Francis Coppola', interests: ['soccer', 'golf'] },
+    { id: '1', name: 'Sarah Connor', interests: ['tennis', 'golf'] }
+  ]);
 
   const options = {
     hostname: 'localhost',
@@ -113,36 +136,7 @@ function testAddUser1() {
     let data = '';
     res.on('data', chunk => data += chunk);
     res.on('end', () => {
-      console.log('\n🧪 POST /users (User 0)');
-      console.log('Status Code:', res.statusCode);
-      console.log('Body:', data);
-    });
-  });
-
-  req.on('error', console.error);
-  req.write(userData);
-  req.end();
-}
-
-function testAddUser2() {
-  const userData = JSON.stringify({ id: '1', name: 'Sarah Connor', interests: ['tenis', 'golf'] });
-
-  const options = {
-    hostname: 'localhost',
-    port,
-    path: '/users',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(userData)
-    }
-  };
-
-  const req = http.request(options, res => {
-    let data = '';
-    res.on('data', chunk => data += chunk);
-    res.on('end', () => {
-      console.log('\n🧪 POST /users (User 1)');
+      console.log('\n🧪 POST /users (Batch Add)');
       console.log('Status Code:', res.statusCode);
       console.log('Body:', data);
     });
