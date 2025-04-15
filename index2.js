@@ -5,22 +5,22 @@ const port = 3000;
 
 app.use(express.json());
 
+// In-memory user storage
 let users = [];
 
-
-// GET /users list users
+// GET /users - List all users
 app.get('/users', (req, res) => {
   res.json(users);
 });
 
-// POST /users
+//  POST /users - Register a new user
 app.post('/users', (req, res) => {
   const { id, name, interests } = req.body;
-
+  // Basic input validation
   if (!id || !name || !Array.isArray(interests)) {
     return res.status(400).json({ error: 'id, name, and interests[] are required' });
   }
-
+  // Prevent duplicate user ID
   if (users.some(u => u.id === id)) {
     return res.status(409).json({ error: 'User with this ID already exists' });
   }
@@ -29,7 +29,7 @@ app.post('/users', (req, res) => {
   res.status(201).json({ message: 'User created successfully' });
 });
 
-// get return users with common interesting
+// GET /matches/:id - Return users with at least one common interest
 app.get('/matches/:id', (req, res) => {
   const id = req.params.id;
   const user = users.find(u => u.id === id);
@@ -42,22 +42,36 @@ app.get('/matches/:id', (req, res) => {
 
   const matches = users
     .filter(u => u.id !== id)
-    .filter(u => u.interests.some(i => userInterests.has(i)));
+    .map(u => {
+      const commonInterests = u.interests.filter(i => userInterests.has(i));
+      if (commonInterests.length > 0) {
+        return {
+          name: u.name,
+          matchedInterests: commonInterests
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
 
   res.json({ matches });
 });
 
+
+// Start the server and trigger tests
 if (require.main === module) {
   app.listen(port, () => {
     console.log(`API running at http://localhost:${port}`);
   });
 
   setTimeout(testListUsers, 1000);
-  setTimeout(testAddUsers1, 2000);
-  setTimeout(testAddUsers2, 2000);
+  setTimeout(testAddUser1, 2000);
+  setTimeout(testAddUser2, 2500);
   setTimeout(testListUsers, 3000);
-  setTimeout(() => testUserMatch(0), 3000);
+  setTimeout(() => testUserMatch('0'), 3500);
 }
+
+// ---------- MANUAL TEST FUNCTIONS ----------
 
 function testListUsers() {
   const options = {
@@ -69,9 +83,9 @@ function testListUsers() {
 
   const req = http.request(options, res => {
     let data = '';
-    res.on('data', chunk => (data += chunk));
+    res.on('data', chunk => data += chunk);
     res.on('end', () => {
-      console.log('\n🧪 Test result GET /users:');
+      console.log('\n🧪 GET /users');
       console.log('Status Code:', res.statusCode);
       console.log('Body:', data);
     });
@@ -81,9 +95,8 @@ function testListUsers() {
   req.end();
 }
 
-function testAddUsers1() {
-  const userData = JSON.stringify({ id: '0', name: 'John Wick', interests: ['soccer', 'golf'] },
-  { id: '1', name: 'John White', interests: ['tenis', 'golf'] });
+function testAddUser1() {
+  const userData = JSON.stringify({ id: '0', name: 'Francis Coppola', interests: ['soccer', 'golf'] });
 
   const options = {
     hostname: 'localhost',
@@ -98,9 +111,9 @@ function testAddUsers1() {
 
   const req = http.request(options, res => {
     let data = '';
-    res.on('data', chunk => (data += chunk));
+    res.on('data', chunk => data += chunk);
     res.on('end', () => {
-      console.log('\n🧪 Test result POST /users:');
+      console.log('\n🧪 POST /users (User 0)');
       console.log('Status Code:', res.statusCode);
       console.log('Body:', data);
     });
@@ -111,8 +124,8 @@ function testAddUsers1() {
   req.end();
 }
 
-function testAddUsers2() {
-  const userData = JSON.stringify({ id: '1', name: 'John White', interests: ['tenis', 'golf'] });
+function testAddUser2() {
+  const userData = JSON.stringify({ id: '1', name: 'Sarah Connor', interests: ['tenis', 'golf'] });
 
   const options = {
     hostname: 'localhost',
@@ -127,9 +140,9 @@ function testAddUsers2() {
 
   const req = http.request(options, res => {
     let data = '';
-    res.on('data', chunk => (data += chunk));
+    res.on('data', chunk => data += chunk);
     res.on('end', () => {
-      console.log('\n🧪 Test result POST /users:');
+      console.log('\n🧪 POST /users (User 1)');
       console.log('Status Code:', res.statusCode);
       console.log('Body:', data);
     });
@@ -150,9 +163,9 @@ function testUserMatch(id) {
 
   const req = http.request(options, res => {
     let data = '';
-    res.on('data', chunk => (data += chunk));
+    res.on('data', chunk => data += chunk);
     res.on('end', () => {
-      console.log(`\n🧪 Test result PUT /matches/${id}:`);
+      console.log(`\n🧪 GET /matches/${id}`);
       console.log('Status Code:', res.statusCode);
       console.log('Body:', data);
     });
